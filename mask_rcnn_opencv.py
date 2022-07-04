@@ -2,16 +2,48 @@ import cv2
 import numpy as np
 from realsense_camera import *
 import time
+from imutils.video import FPS
+import argparse
 
-# Load Realsense camera
-rs = RealsenseCamera()
+
+# construct the argument parse and parse the arguments
+ap = argparse.ArgumentParser()
+
+ap.add_argument("-u", "--use-gpu", type=bool, default=0,
+	help="boolean indicating if CUDA GPU should be used")
+args = vars(ap.parse_args())
+
+
+
+# Generate random colors(80 colors equals to detectable classes of the model, 3 is the number of channels)
+colors = np.random.randint(0, 255, (80, 3))
+
+
+
+
 
 # Loading Mask RCNN
 net = cv2.dnn.readNetFromTensorflow(
     "dnn/frozen_inference_graph_coco.pb", "dnn/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt")
 
-# Generate random colors(80 colors equals to detectable classes of the model, 3 is the number of channels)
-colors = np.random.randint(0, 255, (80, 3))
+
+# check if we are going to use GPU
+if args["use_gpu"]:
+	# set CUDA as the preferable backend and target
+	print("[INFO] setting preferable backend and target to CUDA...")
+	net.setPreferableBackend(cv2.dnn.DNN_BACKEND_CUDA)
+	net.setPreferableTarget(cv2.dnn.DNN_TARGET_CUDA)
+
+# initialize the video stream and pointer to output video file, then
+# start the FPS timer
+print("[INFO] accessing video stream...")
+
+# Load Realsense camera
+rs = RealsenseCamera()
+
+fps = FPS().start()
+
+
 
 
 while True:
@@ -86,5 +118,12 @@ while True:
     if key == 27:
         break
 
+    # update the FPS counter
+    fps.update()
+    
+# stop the timer and display FPS information
+fps.stop()
+print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 rs.release()
 cv2.destroyAllWindows()
